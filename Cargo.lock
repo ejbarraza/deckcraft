@@ -919,6 +919,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "deckcraft-audit"
+version = "0.8.0"
+dependencies = [
+ "quick-xml",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "zip",
+]
+
+[[package]]
 name = "deckcraft-av1"
 version = "0.8.0"
 dependencies = [
@@ -938,9 +949,11 @@ dependencies = [
 name = "deckcraft-cli"
 version = "0.8.0"
 dependencies = [
+ "deckcraft-audit",
  "deckcraft-engine",
  "deckcraft-mcp",
  "serde_json",
+ "zip",
 ]
 
 [[package]]
