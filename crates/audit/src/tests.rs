@@ -213,10 +213,13 @@ fn cropped_image_found() {
 
 #[test]
 fn uncropped_image_is_clean() {
-    // No srcRect, or an all-zero srcRect: nothing hidden.
+    // No srcRect, an all-zero srcRect, outward (negative) offsets, or a
+    // percentage-formatted zero: nothing hidden, no crop finding.
     for blip_fill in [
         r#"<p:blipFill><a:blip r:embed="rId2"/></p:blipFill>"#.to_string(),
         r#"<p:blipFill><a:blip r:embed="rId2"/><a:srcRect l="0" t="0" r="0" b="0"/></p:blipFill>"#.to_string(),
+        r#"<p:blipFill><a:blip r:embed="rId2"/><a:srcRect l="-5000" t="0" r="0" b="-2000"/></p:blipFill>"#.to_string(),
+        r#"<p:blipFill><a:blip r:embed="rId2"/><a:srcRect l="0%" t="0%" r="0%" b="0%"/></p:blipFill>"#.to_string(),
     ] {
         let pic = format!(r#"<p:pic xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}">{blip_fill}</p:pic>"#);
         let bytes = package(&[

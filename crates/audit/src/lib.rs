@@ -554,11 +554,15 @@ fn scan_notes(names: &[String], findings: &mut Vec<AuditFinding>) {
 }
 
 /// The crop rectangle on an `a:srcRect`, if any edge is actually cropped.
-/// Values are `ST_Percentage` (thousandths of a percent); `0` means no crop.
+/// Values are `ST_Percentage` (thousandths of a percent).
 fn crop_description(el: &Element) -> Option<String> {
     let get = |n: &str| attr(el, b"", n).unwrap_or("0");
     let (l, t, r, b) = (get("l"), get("t"), get("r"), get("b"));
-    if [l, t, r, b].iter().all(|v| *v == "0") { None } else { Some(format!("l={l} t={t} r={r} b={b}")) }
+    // Positive offsets crop inward and hide pixels; zero or negative offsets
+    // (PowerPoint writes negatives when crop handles are dragged outward)
+    // hide nothing. Unparseable values still report: fail closed.
+    let crops = |v: &str| v.trim().trim_end_matches('%').parse::<f64>().map_or(true, |n| n > 0.0);
+    if [l, t, r, b].iter().any(|v| crops(v)) { Some(format!("l={l} t={t} r={r} b={b}")) } else { None }
 }
 
 /// Cropped pictures whose `a:blip` still references the full image part: the

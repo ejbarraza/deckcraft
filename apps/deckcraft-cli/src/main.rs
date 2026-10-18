@@ -25,7 +25,12 @@ macro_rules! outln {
 }
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // Raw OS arguments: `std::env::args()` panics on a non-UTF-8 file name,
+    // which would break the audit's 0/1/2 exit contract with status 101.
+    // Only the subcommand name is converted lossily for dispatch; the audit
+    // subcommand receives the original `OsString`s.
+    let raw: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let args: Vec<String> = raw.iter().map(|a| a.to_string_lossy().into_owned()).collect();
     let rest = args.get(1..).unwrap_or(&[]);
     let asks_help = rest.iter().any(|a| a == "--help" || a == "-h");
     if let Some(page) = args.first().filter(|_| asks_help).and_then(|n| help::page(n)) {
@@ -70,7 +75,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("describe") => report(describe(rest.first().map(String::as_str))),
-        Some("audit") => audit_cmd(),
+        Some("audit") => audit_args(raw.get(1..).unwrap_or(&[]).to_vec()),
         Some("app") => report(app(rest)),
         Some("mcp") => report(mcp(rest)),
         Some("links") => {
@@ -535,12 +540,10 @@ fn describe(id: Option<&str>) -> Result<(), String> {
 /// Exit contract: 0 when the deck is clean, 1 when findings are present
 /// (usable as a CI gate), 2 when the audit could not run. Usage errors are
 /// exit 2, never 1: a script must not mistake a typo for "findings present".
-fn audit_cmd() -> ExitCode {
-    audit_args(std::env::args_os().skip(2).collect())
-}
-
-/// The `audit` subcommand over explicit raw arguments, so tests can drive it
-/// without touching the process's own arguments.
+///
+/// Takes the raw OS arguments (see `main`): a non-UTF-8 file name must reach
+/// the filesystem intact, and `main` never parses them as Unicode first.
+/// Tests drive this directly without touching the process's own arguments.
 fn audit_args(raw: Vec<std::ffi::OsString>) -> ExitCode {
     use std::path::PathBuf;
     // The raw OS arguments, not the lossy `String` args `main` parsed: a
