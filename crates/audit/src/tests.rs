@@ -215,6 +215,7 @@ fn cropped_image_found() {
 fn uncropped_image_is_clean() {
     // No srcRect, an all-zero srcRect, outward (negative) offsets, or a
     // percentage-formatted zero: nothing hidden, no crop finding.
+    // (NaN/inf edges still report — see the case below.)
     for blip_fill in [
         r#"<p:blipFill><a:blip r:embed="rId2"/></p:blipFill>"#.to_string(),
         r#"<p:blipFill><a:blip r:embed="rId2"/><a:srcRect l="0" t="0" r="0" b="0"/></p:blipFill>"#.to_string(),
@@ -617,4 +618,34 @@ fn findings_serialize_to_json() {
     assert!(first["location"].as_str().unwrap().contains("ppt/slides/slide1.xml"));
     // Deterministic order: re-running gives the same sequence.
     assert_eq!(ids_of(&bytes), ids_of(&bytes));
+}
+
+#[test]
+fn nonfinite_crop_edge_is_reported() {
+    // NaN/inf edges are invalid values: fail closed, report the crop.
+    for edge in ["NaN", "inf", "-inf"] {
+        let blip_fill = format!(r#"<p:blipFill><a:blip r:embed="rId2"/><a:srcRect l="{edge}" t="0" r="0" b="0"/></p:blipFill>"#);
+        let pic = format!(r#"<p:pic xmlns:p="{P}" xmlns:a="{A}" xmlns:r="{R}">{blip_fill}</p:pic>"#);
+        let bytes = package(&[
+            ("[Content_Types].xml", &content_types()),
+            ("_rels/.rels", &root_rels()),
+            ("ppt/presentation.xml", &presentation()),
+            (
+                "ppt/_rels/presentation.xml.rels",
+                &pres_rels(
+                    r#"<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>"#,
+                ),
+            ),
+            ("ppt/slides/slide1.xml", &slide(&pic)),
+            (
+                "ppt/slides/_rels/slide1.xml.rels",
+                &slide_rels(
+                    r#"<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>"#,
+                ),
+            ),
+            ("ppt/media/image1.png", b"fake-png-bytes"),
+        ]);
+        let findings = findings_of(&bytes);
+        assert!(findings.iter().any(|f| f.id == "image/crop-retains-data"), "{edge}");
+    }
 }

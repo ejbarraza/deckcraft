@@ -560,8 +560,8 @@ fn crop_description(el: &Element) -> Option<String> {
     let (l, t, r, b) = (get("l"), get("t"), get("r"), get("b"));
     // Positive offsets crop inward and hide pixels; zero or negative offsets
     // (PowerPoint writes negatives when crop handles are dragged outward)
-    // hide nothing. Unparseable values still report: fail closed.
-    let crops = |v: &str| v.trim().trim_end_matches('%').parse::<f64>().map_or(true, |n| n > 0.0);
+    // hide nothing. Unparseable or non-finite values still report: fail closed.
+    let crops = |v: &str| v.trim().trim_end_matches('%').parse::<f64>().map_or(true, |n| !n.is_finite() || n > 0.0);
     if [l, t, r, b].iter().any(|v| crops(v)) { Some(format!("l={l} t={t} r={r} b={b}")) } else { None }
 }
 
